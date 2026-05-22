@@ -53,3 +53,38 @@ user: what is my name
 
 DeepSeekAgent (coding assistant): Your name is Jaho! You introduced yourself at the start of our conversation. 😊
 ```
+
+### 2. Inject a structured system prompt with runtime context
+
+In `step2/`, we introduce a proper system prompt that gives the agent a clear identity, behavioral guidelines, and awareness of its runtime environment.
+
+New files:
+- `prompt_template.py` — defines `SYSTEM_PROMPT_TEMPLATE`, a detailed prompt covering core principles, task execution, safety rules, tone, and a dynamic `# Environment` section with placeholders.
+- `system_prompt.py` — provides two functions:
+  - `get_git_context()`: reads the current repo name, branch, short status, and last 5 commits via `git` subprocesses.
+  - `build_system_prompt(context)`: fills all placeholders (`{{cwd}}`, `{{date}}`, `{{platform}}`, `{{shell}}`, `{{git_context}}`, etc.) and returns the final prompt string.
+
+`agent.py` is updated to call `build_system_prompt({})` at initialization and prepend it as the `system` message in `conversation_history`.
+
+**Run the agent:**
+```bash
+uv run step2/agent.py
+
+NanaCode (coding agentß) is ready to receive messages.
+
+user: what's the name of this repo
+
+NanaCode (coding agentß): The repo name is `build-deepseek-coding-agent-from-scratch`.
+
+user: who are you
+
+NanaCode (coding agentß): I'm NanaCode, your CLI-based coding assistant.
+
+user: reply with emoji
+
+NanaCode (coding agentß): 👋
+
+user: hello my friend
+
+NanaCode (coding agentß): Hello, friend! 👋😊
+```
