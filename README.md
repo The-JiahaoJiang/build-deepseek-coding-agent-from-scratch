@@ -1,5 +1,6 @@
 # build-deepseek-coding-agent-from-scratch
-This repo try to provide a step-by-step knowledge and coding tutorial to build a coding agent based on DeepSeek V4 models and Claude Code architecture.
+This repo try to provide a step-by-step knowledge and coding tutorial to build a coding agent based on DeepSeek V4 models and [Claude Code architecture](https://claude-code-from-source.com/ch01-architecture/).
+
 
 
 ## Architecture
@@ -88,3 +89,5 @@ user: hello my friend
 
 NanaCode (coding agentß): Hello, friend! 👋😊
 ```
+
+### 3. Build the tools

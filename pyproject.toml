@@ -5,6 +5,9 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "beautifulsoup4>=4.14.3",
     "openai>=2.37.0",
+    "pyfiglet>=1.0.4",
     "ruff>=0.15.13",
+    "termcolor>=3.3.0",
 ]
