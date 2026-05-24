@@ -44,7 +44,7 @@ class Agent:
 
     def _print_agent(self, message: str):
         # Bold blue label + cyan-colored message
-        print(f"\033[1;34m{self.name} >> \033[0m \033[36m{message}\033[0m")
+        print(f"[\033[1;34m{self.name}\033[0m] >> \033[36m{message}\033[0m")
 
     def send_message(self, message):
         self.conversation_history.append({"role": "user", "content": message})

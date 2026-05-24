@@ -143,7 +143,7 @@ uv run step3/agent.py
 
 Welocome to NanaCode ! I am your coding assistant. How can I help you today?
  >> list your tools
-NanaCode >>  Here are the tools I have access to:
+[NanaCode] >>  Here are the tools I have access to:
 
 | Tool | Description |
 |------|-------------|
@@ -166,7 +166,7 @@ NanaCode >>  Here are the tools I have access to:
 [tool] edit_file   README.md  (-10 lines, +11 lines)
 [tool] read_file   README.md
 [tool] write_file  README.md  (151 lines)
-NanaCode >>  README.md updated with the following corrections:
+[NanaCode] >>  README.md updated with the following corrections:
 
 1. **`Tool` class description** — now mentions the optional `format_fn` parameter and explains what it controls.
 2. **`edit_file` description** — changed "uses `normalize_search` for concurrency-safe matching" to "uses `normalize_search` (simple substring match)" since it currently does not normalize special characters.
@@ -174,6 +174,5 @@ NanaCode >>  README.md updated with the following corrections:
 4. **`generate_diff_msg` description** — added mention of `difflib.unified_diff`.
 5. **Example output** — fixed to match the actual code: `[tool] run_command  $ date` instead of the verbose `[tool] calling ...` / `[tool] result: ...` format. The code only prints the compact `format_fn` output per `agent.py:78`.
  >> exit
-NanaCode >>  Shutting down. Goodbye!
-~/De/c/build-deepseek-c
+[NanaCode] >>  Shutting down. Goodbye!
 ```
