@@ -161,7 +161,7 @@ export default function Home({ onNavigate }: HomeProps) {
             View the steps →
           </a>
           <a
-            href="https://github.com/jahojiang/build-deepseek-coding-agent-from-scratch"
+            href="https://github.com/The-Jiahaojiang/build-deepseek-coding-agent-from-scratch"
             target="_blank"
             rel="noreferrer"
             style={ghostBtn}
