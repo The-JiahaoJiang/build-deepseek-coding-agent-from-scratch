@@ -7,6 +7,16 @@ from pathlib import Path
 
 
 # define a class for a Tool, following the OpenAI Tool schema
+import os as _os
+
+
+def _rel(path: str) -> str:
+    try:
+        return _os.path.relpath(path)
+    except ValueError:
+        return path
+
+
 class Tool:
     def __init__(
         self,
@@ -14,15 +24,22 @@ class Tool:
         description: str,
         parameters: dict,
         execute_fn: callable,
+        format_fn: callable = None,
     ):
         self.type = "function"
         self.name = name
         self.description = description
         self.parameters = parameters
         self.execute_fn = execute_fn
+        self.format_fn = format_fn
 
     def execute(self, args: dict):
         return self.execute_fn(args)
+
+    def format_call(self, args: dict) -> str:
+        if self.format_fn:
+            return self.format_fn(args)
+        return f"[tool] {self.name}  {args}"
 
     def to_openai_schema(self) -> dict:
         return {
@@ -61,6 +78,7 @@ class ToolRegistry:
                 "required": ["file_path"],
             },
             execute_fn=read_file,
+            format_fn=lambda a: f"[tool] read_file   {_rel(a.get('file_path', ''))}",
         ))
         self.register_tool(Tool(
             name="write_file",
@@ -74,6 +92,10 @@ class ToolRegistry:
                 "required": ["file_path", "content"],
             },
             execute_fn=write_file,
+            format_fn=lambda a: (
+                f"[tool] write_file  {_rel(a.get('file_path', ''))}  "
+                f"({len(a.get('content', '').splitlines())} lines)"
+            ),
         ))
         self.register_tool(Tool(
             name="list_files",
@@ -86,6 +108,7 @@ class ToolRegistry:
                 "required": [],
             },
             execute_fn=list_files,
+            format_fn=lambda a: f"[tool] list_files  {_rel(a.get('dir_path', '.'))}",
         ))
         self.register_tool(Tool(
             name="edit_file",
@@ -100,6 +123,11 @@ class ToolRegistry:
                 "required": ["file_path", "new_lines", "old_lines"],
             },
             execute_fn=edit_file,
+            format_fn=lambda a: (
+                f"[tool] edit_file   {_rel(a.get('file_path', ''))}  "
+                f"(-{len([l for l in a.get('old_lines', '').splitlines() if l])} lines, "
+                f"+{len([l for l in a.get('new_lines', '').splitlines() if l])} lines)"
+            ),
         ))
         self.register_tool(Tool(
             name="grep_search",
@@ -113,6 +141,7 @@ class ToolRegistry:
                 "required": ["file_path", "pattern"],
             },
             execute_fn=grep_search,
+            format_fn=lambda a: f"[tool] grep_search {_rel(a.get('file_path', ''))}  pattern='{a.get('pattern', '')}'" ,
         ))
         self.register_tool(Tool(
             name="run_command",
@@ -125,6 +154,7 @@ class ToolRegistry:
                 "required": ["command"],
             },
             execute_fn=run_command,
+            format_fn=lambda a: f"[tool] run_command  $ {a.get('command', '')}",
         ))
         self.register_tool(Tool(
             name="web_search",
@@ -137,6 +167,7 @@ class ToolRegistry:
                 "required": ["url"],
             },
             execute_fn=web_search,
+            format_fn=lambda a: f"[tool] web_search  {a.get('url', '')}",
         ))
 
     def register_tool(self, tool: Tool):

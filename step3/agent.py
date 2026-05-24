@@ -73,9 +73,9 @@ class Agent:
 
             # Execute each tool and feed results back
             for tc in tool_calls:
-                print(f"[tool] calling '{tc['name']}' with args: {tc['args']}")
+                tool = self.tool_registry.get_tool(tc["name"])
                 tool_response = self.tool_registry.execute_tool(tc)
-                print(f"[tool] '{tc['name']}' result: {tool_response}")
+                print(tool.format_call(tc["args"]))
                 self.conversation_history.append({
                     "role": "tool",
                     "tool_call_id": tc["id"],
