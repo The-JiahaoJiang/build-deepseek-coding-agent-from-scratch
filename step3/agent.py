@@ -1,8 +1,9 @@
+import json
 from pathlib import Path
 import openai
 import pyfiglet
 from system_prompt import build_system_prompt
-from termcolor import colored
+from tools import ToolRegistry
 
 root_dir = Path(__file__).parent.parent
 
@@ -24,7 +25,8 @@ class Agent:
 
         self._aborted = False
 
-        self._system_prompt = build_system_prompt({})
+        self.tool_registry = ToolRegistry()
+        self._system_prompt = build_system_prompt(self.tool_registry)
         self.conversation_history.append({"role": "system", "content": self._system_prompt})
 
     def _abort(self):
@@ -37,23 +39,74 @@ class Agent:
     def clear_conversation_history(self):
         self.conversation_history = [{"role": "system", "content": self._system_prompt}]
 
+    def _get_user_input(self) -> str:
+        return input("\033[1;37m >> \033[0m")
+
+    def _print_agent(self, message: str):
+        # Bold blue label + cyan-colored message
+        print(f"\033[1;34m{self.name} >> \033[0m \033[36m{message}\033[0m")
+
     def send_message(self, message):
         self.conversation_history.append({"role": "user", "content": message})
-        response = self.get_response()
-        self.conversation_history.append({"role": "assistant", "content": response})
 
-        print(f"{self.name} :: {response}")
+        while True:
+            msg = self.get_response()
+            tool_calls = self.inspect_response_for_tools(msg)
+
+            # Append assistant turn to history (include tool_calls if present)
+            msg_dict = {"role": "assistant", "content": msg.content or ""}
+            if getattr(msg, "reasoning_content", None):
+                msg_dict["reasoning_content"] = msg.reasoning_content
+            if msg.tool_calls:
+                msg_dict["tool_calls"] = [
+                    {
+                        "id": tc.id,
+                        "type": tc.type,
+                        "function": {"name": tc.function.name, "arguments": tc.function.arguments},
+                    }
+                    for tc in msg.tool_calls
+                ]
+            self.conversation_history.append(msg_dict)
+
+            if not tool_calls:
+                break
+
+            # Execute each tool and feed results back
+            for tc in tool_calls:
+                print(f"[tool] calling '{tc['name']}' with args: {tc['args']}")
+                tool_response = self.tool_registry.execute_tool(tc)
+                print(f"[tool] '{tc['name']}' result: {tool_response}")
+                self.conversation_history.append({
+                    "role": "tool",
+                    "tool_call_id": tc["id"],
+                    "content": str(tool_response),
+                })
+
+        self._print_agent(msg.content or "")
+
+    def inspect_response_for_tools(self, message):
+        if not message.tool_calls:
+            return []
+        return [
+            {
+                "id": tc.id,
+                "name": tc.function.name,
+                "args": json.loads(tc.function.arguments),
+            }
+            for tc in message.tool_calls
+        ]
 
     def get_response(self):
         response = self.client.chat.completions.create(
             model=self.model_name,
             messages=self.conversation_history,
+            tools=self.tool_registry.to_openai_tools(),
             stream=False,
             reasoning_effort="high",
             extra_body={"thinking": {"type": "enabled"}},
         )
 
-        return response.choices[0].message.content.strip()
+        return response.choices[0].message
 
     def _print_banner(self):
         r, g, b = 0x1e, 0x88, 0xe5
@@ -78,9 +131,9 @@ class Agent:
         print(f"Welocome to {self.name} ! I am your coding assistant. How can I help you today?")
         
         while True:
-            user_input = input("user >> ")
+            user_input = self._get_user_input()
             if user_input.lower() in ["exit", "quit"]:
-                print(f"{self.name} is shutting down.")
+                self._print_agent("Shutting down. Goodbye!")
                 break
             self.send_message(user_input)
 

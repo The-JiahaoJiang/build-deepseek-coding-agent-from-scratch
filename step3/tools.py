@@ -2,102 +2,140 @@
 This module manage the tolls that the agent can use, including defining a Tool class and a registry for available tools.
 """
 
-from asyncio import subprocess
+import subprocess
 from pathlib import Path
-from typing import List
 
 
-class Param:
-    def __init__(self, name: str, data_type: str, description: str, required: bool):
-        self.name = name
-        self.data_type = data_type
-        self.description = description
-        self.required = required
-
-
-# define a class for a Tool, including name, description, input schema, and a function to execute the tool
+# define a class for a Tool, following the OpenAI Tool schema
 class Tool:
     def __init__(
         self,
         name: str,
         description: str,
-        params: List[Param],
+        parameters: dict,
         execute_fn: callable,
     ):
+        self.type = "function"
         self.name = name
         self.description = description
-        self.params = params
+        self.parameters = parameters
         self.execute_fn = execute_fn
 
-    def execute(self, **kwargs):
-        return self.execute_fn(**kwargs)
+    def execute(self, args: dict):
+        return self.execute_fn(args)
+
+    def to_openai_schema(self) -> dict:
+        return {
+            "type": self.type,
+            "function": {
+                "name": self.name,
+                "description": self.description,
+                "parameters": self.parameters,
+            },
+        }
 
 
 # create a registry for available tools
 class ToolRegistry:
+
+    _instance = None
+
     def __init__(self):
         self.tools = {}
         self._register_defaults()
 
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(ToolRegistry, cls).__new__(cls)
+        return cls._instance
+
     def _register_defaults(self):
         self.register_tool(Tool(
             name="read_file",
-            description="Read the content of a file. Input should be a JSON object with 'file_path' field.",
-            params=[
-                Param(name="file_path", data_type="str", description="Path to the file", required=True)
-            ],
+            description="Read the content of a file.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "file_path": {"type": "string", "description": "Path to the file"},
+                },
+                "required": ["file_path"],
+            },
             execute_fn=read_file,
         ))
         self.register_tool(Tool(
             name="write_file",
-            description="Write content to a file. Input should be a JSON object with 'file_path' and 'content' fields.",
-            params=[
-                Param(name="file_path", data_type="str", description="Path to the file", required=True),
-                Param(name="content", data_type="str", description="Content to write to the file", required=True),
-            ],
+            description="Write content to a file.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "file_path": {"type": "string", "description": "Path to the file"},
+                    "content": {"type": "string", "description": "Content to write to the file"},
+                },
+                "required": ["file_path", "content"],
+            },
             execute_fn=write_file,
         ))
         self.register_tool(Tool(
             name="list_files",
-            description="List files in a directory. Input should be a JSON object with 'dir_path' field (optional, default is current directory).",
-            params=[
-                Param(name="dir_path", data_type="str", description="Path to the directory", required=False)
-            ],
+            description="List files in a directory.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "dir_path": {"type": "string", "description": "Path to the directory (optional, default is current directory)"},
+                },
+                "required": [],
+            },
             execute_fn=list_files,
         ))
         self.register_tool(Tool(
             name="edit_file",
-            description="Edit the content of a file. Input should be a JSON object with 'file_path', 'new_lines', and 'old_lines' fields.",
-            params=[
-                Param(name="file_path", data_type="str", description="Path to the file", required=True),
-                Param(name="new_lines", data_type="str", description="New content to write to the file", required=True),
-                Param(name="old_lines", data_type="str", description="Old content to be replaced, used for concurrency control", required=True),
-            ],
+            description="Edit the content of a file by replacing old_lines with new_lines.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "file_path": {"type": "string", "description": "Path to the file"},
+                    "new_lines": {"type": "string", "description": "New content to write to the file"},
+                    "old_lines": {"type": "string", "description": "Old content to be replaced, used for concurrency control"},
+                },
+                "required": ["file_path", "new_lines", "old_lines"],
+            },
             execute_fn=edit_file,
         ))
         self.register_tool(Tool(
             name="grep_search",
-            description="Search for a pattern in a file. Input should be a JSON object with 'file_path' and 'pattern' fields.",
-            params=[
-                Param(name="file_path", data_type="str", description="Path to the file", required=True),
-                Param(name="pattern", data_type="str", description="Pattern to search for", required=True),
-            ],
+            description="Search for a pattern in a file.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "file_path": {"type": "string", "description": "Path to the file"},
+                    "pattern": {"type": "string", "description": "Pattern to search for"},
+                },
+                "required": ["file_path", "pattern"],
+            },
             execute_fn=grep_search,
         ))
         self.register_tool(Tool(
             name="run_command",
-            description="Run a shell command. Input should be a JSON object with 'command' field.",
-            params=[
-                Param(name="command", data_type="str", description="Shell command to run", required=True)
-            ],
+            description="Run a shell command.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "command": {"type": "string", "description": "Shell command to run"},
+                },
+                "required": ["command"],
+            },
             execute_fn=run_command,
         ))
         self.register_tool(Tool(
             name="web_search",
-            description="Search the web for a query. Input should be a JSON object with 'url' field.",
-            params=[
-                Param(name="url", data_type="str", description="URL to visit and parse the content", required=True)
-            ],
+            description="Search the web by visiting a URL.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string", "description": "URL to visit and parse the content"},
+                },
+                "required": ["url"],
+            },
             execute_fn=web_search,
         ))
 
@@ -107,27 +145,20 @@ class ToolRegistry:
     def get_tool(self, name):
         return self.tools.get(name)
 
+    def execute_tool(self, tool_call: dict) -> str:
+        name = tool_call.get("name")
+        args = tool_call.get("args", {})
+        tool = self.get_tool(name)
+        if tool is None:
+            return f"Tool '{name}' not found."
+        return tool.execute(args)
+
     def list_tools(self):
         return list(self.tools.keys())
 
-    def to_specs(self):
-        # convert the registered tools to a list of dicts with name, description, and input schema
-        return [
-            {
-                "name": tool.name,
-                "description": tool.description,
-                "params": [
-                    {
-                        "name": param.name,
-                        "data_type": param.data_type,
-                        "description": param.description,
-                        "required": param.required,
-                    }
-                    for param in tool.params
-                ],
-            }
-            for tool in self.tools.values()
-        ]
+    def to_openai_tools(self):
+        """Return tools in the OpenAI/DeepSeek function-calling schema."""
+        return [tool.to_openai_schema() for tool in self.tools.values()]
 
 
 def read_file(input_dict: dict) -> str:

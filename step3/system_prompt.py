@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 from prompt_template import SYSTEM_PROMPT_TEMPLATE
-
+from tools import ToolRegistry
 
 def get_git_context() -> str:
     opts = {"encoding": "utf-8", "timeout": 3}
@@ -39,7 +39,7 @@ def get_git_context() -> str:
         return "Not a git repository or git command failed."
 
 
-def build_system_prompt(context) -> str:
+def build_system_prompt(toolRegistry: ToolRegistry) -> str:
     from datetime import date
 
     today = date.today().isoformat()
@@ -62,7 +62,7 @@ def build_system_prompt(context) -> str:
         "{{memory}}": "Not available",
         "{{skills}}": "Not available",
         "{{agents}}": "Not available",
-        "{{deferred_tools}}": "Not available",
+        "{{deferred_tools}}": str(toolRegistry.to_openai_tools()) if toolRegistry else "Not available",
     }
     result = SYSTEM_PROMPT_TEMPLATE
     for key, value in replacements.items():

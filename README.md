@@ -90,4 +90,57 @@ user: hello my friend
 NanaCode (coding agentß): Hello, friend! 👋😊
 ```
 
-### 3. Build the tools
+### 3. Build the tools (this section is updated by this agent - NanaCode)
+
+In `step3/`, we give the agent the ability to read, write, edit, search files, run shell commands, and browse the web — the foundation that turns a chatbot into a coding agent.
+
+New files:
+- `tools.py` — defines `Tool` (a function-calling tool wrapping a name, description, JSON Schema parameters, and an `execute_fn` callable) and `ToolRegistry` (a singleton that registers tools, dispatches tool calls, and exports the OpenAI function-calling schema via `to_openai_tools()`). Seven default tools are registered:
+
+  | Tool | Description |
+  |------|-------------|
+  | `read_file` | Read a file with line numbers |
+  | `write_file` | Write content to a file |
+  | `list_files` | List files in a directory |
+  | `edit_file` | Replace `old_lines` with `new_lines` in a file (with concurrency-safe matching) |
+  | `grep_search` | Search for a pattern in a file |
+  | `run_command` | Run a shell command and capture output |
+  | `web_search` | Fetch and parse a URL with BeautifulSoup |
+
+- `permission.py` — defines `PermissionMode` enum: `DEFAULT`, `PLAN_ONLY`, `APPROVAL`, `ACCEPT_ALL`, `DONT_ASK`, laying the groundwork for tool permission checks.
+
+- `system_prompt.py` — updated to accept a `ToolRegistry` and inject the tool definitions into the `{{deferred_tools}}` placeholder so the model knows what tools are available.
+
+- `prompt_template.py` — added a `# Tool usage` section that maps each tool to its conventional counterpart (e.g. "Use read_file instead of cat/head/tail", "Use edit_file (not write_file) for modifying existing files").
+
+- `agent.py` — updated to implement the **tool-calling loop**:
+  1. Sends the conversation + tool definitions to the model.
+  2. Inspects the response for `tool_calls`.
+  3. If present, executes each tool via `ToolRegistry.execute_tool()` and appends the results as `tool`-role messages back into the conversation.
+  4. Loops until the model responds with a plain text answer (no more tool calls).
+  5. Also preserves `reasoning_content` from the DeepSeek thinking mode in the conversation history.
+
+**Run the agent:**
+```bash
+uv run step3/agent.py
+```
+The agent can now autonomously chain tool calls. For example:
+
+```shell
+❯ uv run step3/agent.py
+         _         _   _                    ____          _
+       _ \'-_,#   | \ | | __ _ _ __   __ _ / ___|___   __| | ___
+      _\'--','`|  |  \| |/ _` | '_ \ / _` | |   / _ \ / _` |/ _ \
+      \`---`  /   | |\  | (_| | | | | (_| | |__| (_) | (_| |  __/
+       `----'`    |_| \_|\__,_|_| |_|\__,_|\____\___/ \__,_|\___|
+
+Welocome to NanaCode ! I am your coding assistant. How can I help you today?
+ >> what time is it
+[tool] calling 'run_command' with args: {'command': 'date'}
+[tool] 'run_command' result: Output of command 'date':
+Sun 24 May 2026 21:33:01 CST
+
+NanaCode >>  It's **Sunday, May 24, 2026, 21:33 CST** (China Standard Time).
+ >> exit
+NanaCode >>  Shutting down. Goodbye!
+```
