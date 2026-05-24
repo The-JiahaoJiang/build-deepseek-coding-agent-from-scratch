@@ -21,7 +21,7 @@ react-app/
 │   ├── main.tsx         # Entry point
 │   └── index.css        # Global styles
 ├── index.html
-├── vite.config.ts       # base: '/nanacode/' — do NOT change this
+├── vite.config.ts       # base: '/build-deepseek-coding-agent-from-scratch/' — do NOT change this
 └── package.json
 ```
 
@@ -60,7 +60,7 @@ To preview locally:
 
 ```bash
 npm install
-npm run dev     # http://localhost:5173/nanacode/
+npm run dev     # http://localhost:5173/build-deepseek-coding-agent-from-scratch/
 ```
 
 ---
