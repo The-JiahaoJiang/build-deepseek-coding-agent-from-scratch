@@ -199,8 +199,8 @@ export default function Home({ onNavigate }: HomeProps) {
         <div style={cardsGrid}>
           {[
             {
-              title: '3 progressive steps',
-              desc: 'From a single-turn chat loop to a full tool-calling agent — each step builds on the last.',
+              title: '4 progressive steps',
+              desc: 'From a single-turn chat loop to a full tool-calling agent with a permission system — each step builds on the last.',
             },
             {
               title: 'ToolRegistry',

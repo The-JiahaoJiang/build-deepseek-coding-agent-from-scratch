@@ -94,61 +94,135 @@ const divider: React.CSSProperties = {
 }
 
 const STEP1_CODE = `\
-import openai
+class Agent:
+    def __init__(self, name, role):
+        self.name = name
+        self.role = role
+        self.conversation_history = []
+        self.client = openai.OpenAI(
+            api_key=self._read_api_key(),
+            base_url="https://api.deepseek.com",
+        )
+        self.model_name = "deepseek-v4-pro"
 
-client = openai.OpenAI(
-    api_key=open("deepseek.keys").read().strip(),
-    base_url="https://api.deepseek.com",
-)
+    def send_message(self, message):
+        self.conversation_history.append({"role": "user", "content": message})
+        response = self.get_response()
+        self.conversation_history.append({"role": "assistant", "content": response})
+        print(f"{self.name} ({self.role}): {response}")
 
-response = client.chat.completions.create(
-    model="deepseek-v4-pro",
-    messages=[{"role": "user", "content": input(" >> ")}],
-)
+    def get_response(self):
+        return self.client.chat.completions.create(
+            model=self.model_name,
+            messages=self.conversation_history,
+            reasoning_effort="high",
+            extra_body={"thinking": {"type": "enabled"}},
+        ).choices[0].message.content.strip()
 
-print(response.choices[0].message.content)
+    def start_loop(self):
+        while True:
+            user_input = input("user: ")
+            if user_input.lower() in ["exit", "quit"]:
+                break
+            self.send_message(user_input)
 `
 
 const STEP2_CODE = `\
-# Multi-turn loop with system prompt and conversation history
+# step2 adds a structured system prompt injected at init time
+from system_prompt import build_system_prompt
 
-history = [{"role": "system", "content": build_system_prompt()}]
+class Agent(...):
+    def __init__(self, name, role):
+        ...  # same as step 1
 
-while True:
-    user_input = input(" >> ")
-    history.append({"role": "user", "content": user_input})
+        # NEW: build system prompt and prepend to conversation history
+        self._system_prompt = build_system_prompt({})
+        self.conversation_history.append({
+            "role": "system",
+            "content": self._system_prompt,
+        })
 
-    response = client.chat.completions.create(
-        model="deepseek-v4-pro",
-        messages=history,
-    )
-    reply = response.choices[0].message.content
-    history.append({"role": "assistant", "content": reply})
-    print(f"[NanaCode] >> {reply}")
+# system_prompt.py fills {{cwd}}, {{date}}, {{platform}},
+# {{shell}}, {{git_context}} from the live environment
 `
 
 const STEP3_CODE = `\
-# Full agent: tool-calling loop with ToolRegistry
+# step3: ToolRegistry + tool-calling loop
+from tools import ToolRegistry
 
-while True:
-    msg = self.get_response()               # call DeepSeek
-    tool_calls = self.inspect_response_for_tools(msg)
+class Agent(...):
+    def __init__(self):
+        self.tool_registry = ToolRegistry()
+        self._system_prompt = build_system_prompt(self.tool_registry)
+        ...
 
-    self.conversation_history.append(msg_dict)
+    def send_message(self, message):
+        self.conversation_history.append({"role": "user", "content": message})
 
-    if not tool_calls:
-        break                               # plain text reply — done
+        while True:
+            msg = self.get_response()          # call DeepSeek
+            tool_calls = self.inspect_response_for_tools(msg)
+            self.conversation_history.append(msg_dict)
 
-    for tc in tool_calls:
+            if not tool_calls:
+                break                          # plain-text reply — done
+
+            for tc in tool_calls:
+                tool = self.tool_registry.get_tool(tc["name"])
+                result = self.tool_registry.execute_tool(tc)
+                print(tool.format_call(tc["args"]))  # [tool] read_file  src/app.py
+                self.conversation_history.append({
+                    "role": "tool",
+                    "tool_call_id": tc["id"],
+                    "content": str(result),
+                })
+            # loop → model sees tool results, decides next action
+
+        self._print_agent(msg.content or "")
+`
+
+const STEP4_CODE = `\
+# step4: permission system via pre-tool hooks
+from permission import PermissionMode
+from tools import OpType
+
+class Agent(...):
+    def __init__(self):
+        ...  # same as step 3
+        self._permission_mode = PermissionMode.DEFAULT
+        self._accepted_files: set = set()
+        self._pre_tool_hooks = []
+        self.register_pre_tool_hook(self.inspect_permission)
+
+    def inspect_permission(self, tc: dict) -> bool:
         tool = self.tool_registry.get_tool(tc["name"])
-        result = self.tool_registry.execute_tool(tc)
-        print(tool.format_call(tc["args"]))  # e.g. [tool] read_file  src/app.py
-        self.conversation_history.append({
-            "role": "tool",
-            "tool_call_id": tc["id"],
-            "content": str(result),
-        })
-    # loop → model sees tool results, decides next action
+        if tool is None or tool.op_type != OpType.WRITE:
+            return True   # READ ops always allowed
+        if self._permission_mode == PermissionMode.ACCEPT_ALL:
+            return True
+        if self._permission_mode == PermissionMode.PLAN_ONLY:
+            return False  # deny all writes
+        # DEFAULT → interactive prompt
+        print("[permission] Write operation requested:")
+        print(f"  {tool.format_call(tc['args'])}")
+        choice = input("  [a] Accept  [b] Accept file  [c] Accept all  [d] Deny: ")
+        if choice == "a":  return True
+        if choice == "c":  self._permission_mode = PermissionMode.ACCEPT_ALL; return True
+        return False  # deny
+
+    def send_message(self, message):
+        ...
+        for tc in tool_calls:
+            # run hooks before each tool — denial skips execution
+            if not all(hook(tc) for hook in self._pre_tool_hooks):
+                self.conversation_history.append({
+                    "role": "tool",
+                    "tool_call_id": tc["id"],
+                    "content": "Tool call denied by user.",
+                })
+                continue
+            tool_response = self.tool_registry.execute_tool(tc)
+            ...
 `
 
 export default function Steps() {
@@ -229,9 +303,11 @@ export default function Steps() {
           implement the tool-calling loop. After each API response, check for
           tool calls, execute them, append the results to history, and loop
           back until the model returns a plain text reply with no tool calls.
+          DeepSeek's <code style={{ color: 'var(--color-primary)', fontSize: '0.875rem' }}>reasoning_content</code> is
+          also preserved in history so the model retains chain-of-thought across turns.
         </p>
         <div style={tagList}>
-          {['ToolRegistry', 'tool-calling loop', 'read_file', 'write_file', 'edit_file', 'run_command', 'web_search'].map(t => (
+          {['ToolRegistry', 'tool-calling loop', 'read_file', 'write_file', 'edit_file', 'run_command', 'web_search', 'reasoning_content'].map(t => (
             <span key={t} style={tag}>{t}</span>
           ))}
         </div>
@@ -240,6 +316,36 @@ export default function Steps() {
             <span style={fileName}>step3/agent.py</span>
           </div>
           <pre style={pre}><code>{STEP3_CODE}</code></pre>
+        </div>
+      </div>
+
+      <hr style={divider} />
+
+      {/* Step 4 */}
+      <div style={stepWrap}>
+        <div style={stepHeader}>
+          <span style={stepNum}>step 4</span>
+          <h2 style={stepTitle}>Permission system</h2>
+        </div>
+        <p style={stepDesc}>
+          Add a <code style={{ color: 'var(--color-primary)', fontSize: '0.875rem' }}>PermissionMode</code> enum
+          and a pre-tool hook pipeline so users control which write operations the agent
+          may execute. Each tool now carries an{' '}
+          <code style={{ color: 'var(--color-primary)', fontSize: '0.875rem' }}>OpType</code> ({' '}
+          <code style={{ color: 'var(--color-primary)', fontSize: '0.875rem' }}>READ</code> /{' '}
+          <code style={{ color: 'var(--color-primary)', fontSize: '0.875rem' }}>WRITE</code>)
+          and the hook intercepts writes to prompt for approval.
+        </p>
+        <div style={tagList}>
+          {['PermissionMode', 'OpType', 'pre-tool hooks', 'PLAN_ONLY', 'ACCEPT_EDITS', 'ACCEPT_ALL', 'interactive prompt'].map(t => (
+            <span key={t} style={tag}>{t}</span>
+          ))}
+        </div>
+        <div style={codeBlock}>
+          <div style={codeHeader}>
+            <span style={fileName}>step4/agent.py</span>
+          </div>
+          <pre style={pre}><code>{STEP4_CODE}</code></pre>
         </div>
       </div>
     </main>

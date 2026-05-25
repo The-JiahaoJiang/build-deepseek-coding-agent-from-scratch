@@ -103,18 +103,26 @@ const pre: React.CSSProperties = {
 const PROMPT_SNIPPET = `\
 def build_system_prompt(toolRegistry: ToolRegistry) -> str:
     git_context = get_git_context()   # repo name, branch, status, last 5 commits
-    plat        = platform.system() + " " + platform.machine()
+    plat        = f"{platform.system()} {platform.machine()}"
     shell       = os.environ.get("SHELL", "/bin/sh")
     today       = date.today().isoformat()
 
-    return SYSTEM_PROMPT_TEMPLATE.format(
-        cwd         = str(Path.cwd()),
-        date        = today,
-        platform    = plat,
-        shell       = shell,
-        git_context = git_context,
-        tools       = toolRegistry.get_tools_description(),
-    )
+    replacements = {
+        "{{cwd}}": str(Path.cwd()),
+        "{{date}}": today,
+        "{{platform}}": plat,
+        "{{shell}}": shell,
+        "{{git_context}}": git_context,
+        "{{deferred_tools}}": str(toolRegistry.to_openai_tools()),
+        "{{claude_md}}": "Not available",
+        "{{memory}}": "Not available",
+        "{{skills}}": "Not available",
+        "{{agents}}": "Not available",
+    }
+    result = SYSTEM_PROMPT_TEMPLATE
+    for key, value in replacements.items():
+        result = result.replace(key, value)
+    return result
 `
 
 const tools = [
@@ -213,7 +221,11 @@ export default function Features() {
             { token: '{{platform}}', label: 'OS + arch' },
             { token: '{{shell}}', label: 'Login shell' },
             { token: '{{git_context}}', label: 'Branch · status · log' },
-            { token: '{{tools}}', label: 'Tool schemas' },
+            { token: '{{deferred_tools}}', label: 'Tool schemas (OpenAI format)' },
+            { token: '{{claude_md}}', label: 'CLAUDE.md context' },
+            { token: '{{memory}}', label: 'Persistent memory' },
+            { token: '{{skills}}', label: 'Skill definitions' },
+            { token: '{{agents}}', label: 'Sub-agent registry' },
           ].map(({ token, label }) => (
             <div
               key={token}
