@@ -90,7 +90,7 @@ user: hello my friend
 NanaCode (coding agentß): Hello, friend! 👋😊
 ```
 
-### 3. Build the tools (This sections was updated by NanaCode)
+### 3. Build the tools (This section was updated by NanaCode)
 
 In `step3/`, we give the agent the ability to read, write, edit, search files, run shell commands, and browse the web — the foundation that turns a chatbot into a coding agent.
 
@@ -175,4 +175,97 @@ Welocome to NanaCode ! I am your coding assistant. How can I help you today?
 5. **Example output** — fixed to match the actual code: `[tool] run_command  $ date` instead of the verbose `[tool] calling ...` / `[tool] result: ...` format. The code only prints the compact `format_fn` output per `agent.py:78`.
  >> exit
 [NanaCode] >>  Shutting down. Goodbye!
+```
+
+### 4. Implement permission system with interactive approval (This section was updated by NanaCode)
+
+In `step4/`, we add a real permission system that intercepts write operations and prompts the user before executing them — giving users control over what the agent can modify.
+
+Key changes from step3:
+
+- **`tools.py`** — introduces `OpType` enum (`READ`/`WRITE`). Each `Tool` now carries an `op_type` field (default `READ`). `write_file`, `edit_file`, and `run_command` are marked `WRITE`. `ToolRegistry` gains `get_read_tools()` and `get_write_tools()`. A `_rel()` helper converts absolute paths to relative for compact display in `format_fn`.
+
+- **`permission.py`** — refines `PermissionMode` to four modes:
+
+  | Mode | Behavior |
+  |------|----------|
+  | `DEFAULT` | Prompts user for each WRITE operation |
+  | `PLAN_ONLY` | Blocks all WRITE operations |
+  | `ACCEPT_EDITS` | Auto-approves edits to files the user has already accepted |
+  | `ACCEPT_ALL` | Auto-approves everything |
+
+- **`agent.py`** — implements the permission pipeline:
+
+  1. `permission_mode` property (getter/setter) to switch modes at runtime.
+  2. `_accepted_files: set` — tracks files the user has approved for batch editing.
+  3. `_pre_tool_hooks` — a list of callables executed before each tool call; any hook returning `False` skips the tool.
+  4. `register_pre_tool_hook(fn)` — registers a hook (called in `__init__` to wire up `inspect_permission`).
+  5. `inspect_permission(tc)` — the core hook:
+     - Non-WRITE tools always pass.
+     - `ACCEPT_ALL` always passes; `PLAN_ONLY` always denies.
+     - `ACCEPT_EDITS` passes only for files already in `_accepted_files`.
+     - Otherwise displays an interactive prompt:
+       ```
+       [a] Accept this tool call
+       [b] Accept all edits for this file
+       [c] Accept all edits for this session
+       [d] Deny this tool call
+       ```
+  6. `send_message()` runs all pre-tool hooks before executing each tool; denied calls append `"Tool call denied by user."` as the tool result.
+
+**Run the agent:**
+```bash
+uv run step4/agent.py
+```
+
+Example interaction with permission prompts:
+
+```shell
+uv run step4/agent.py
+         _         _   _                    ____          _
+       _ \'-_,#   | \ | | __ _ _ __   __ _ / ___|___   __| | ___
+      _\'--','`|  |  \| |/ _` | '_ \ / _` | |   / _ \ / _` |/ _ \
+      \`---`  /   | |\  | (_| | | | | (_| | |__| (_) | (_| |  __/
+       `----'`    |_| \_|\__,_|_| |_|\__,_|\____\___/ \__,_|\___|
+
+Welocome to NanaCode ! I am your coding assistant. How can I help you today?
+ >> search github repo named build-deepseek-coding-agent-from-scratch
+[tool] web_search  https://github.com/search?q=build-deepseek-coding-agent-from-scratch&type=repositories
+[NanaCode] >> GitHub 上搜索到 **1 个匹配仓库**：
+
+| 仓库 | 描述 | 语言 | 更新 |
+|------|------|------|------|
+| [The-JiahaoJiang/build-deepseek-coding-agent-from-scratch](https://github.com/The-JiahaoJiang/build-deepseek-coding-agent-from-scratch) | A step-by-step knowledge and coding tutorial to build a coding agent based on DeepSeek V4 | Python | 23 小时前 |
+
+这就是你当前工作目录所在的仓库。目前它是唯一一个公开的 `build-deepseek-coding-agent-from-scratch` 仓库，1 star，最近活跃。
+ >> read step4 folder and update README.md
+[tool] list_files  step4
+[tool] read_file   README.md
+[tool] read_file   step4/agent.py
+[tool] read_file   step4/tools.py
+[tool] read_file   step4/system_prompt.py
+[tool] read_file   step4/prompt_template.py
+[tool] read_file   step4/permission.py
+[tool] read_file   step4/__init__.py
+
+[permission] Write operation requested:
+  [tool] edit_file   README.md  (-3 lines, +53 lines)
+	[a] Accept this tool call
+	[b] Accept all edits for this file (README.md)
+	[c] Accept all edits for this session
+	[d] Deny this tool call
+  Your choice (a/b/c/d): b
+[tool] edit_file   README.md  (-3 lines, +53 lines)
+[tool] grep_search README.md  pattern='exit'
+[tool] read_file   README.md
+[tool] edit_file   README.md  (-3 lines, +55 lines)
+[NanaCode] >> README.md 已更新，新增了 **### 4. Implement permission system with interactive approval** 章节。主要内容：
+
+- **`OpType` 枚举** — 将工具分为 `READ`/`WRITE` 两类
+- **`PermissionMode` 细化** — 四种模式：`DEFAULT`、`PLAN_ONLY`、`ACCEPT_EDITS`、`ACCEPT_ALL`
+- **`inspect_permission` 钩子** — 对 WRITE 操作弹出交互式审批对话框（a/b/c/d 四个选项）
+- **`_pre_tool_hooks` 管道** — 工具执行前统一走权限检查
+- **`_rel()` 辅助函数** — 工具调用显示时使用相对路径
+ >> exit
+[NanaCode] >> Shutting down. Goodbye!
 ```
