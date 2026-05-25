@@ -145,7 +145,7 @@ export default function Home({ onNavigate }: HomeProps) {
     <main style={page}>
       {/* Hero */}
       <section style={hero}>
-        <span style={badge}>v3 · DeepSeek · OpenAI tool-calling</span>
+        <span style={badge}>ClaudeCode · DeepSeekV4 · OpenAI SDK  · Coding Agent</span>
         <h1 style={h1Style}>Build a coding agent<br />from scratch</h1>
         <p style={subtitle}>
           A step-by-step tutorial for building <strong>NanaCode</strong> —

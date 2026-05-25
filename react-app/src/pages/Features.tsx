@@ -246,6 +246,49 @@ export default function Features() {
           ))}
         </div>
       </section>
+
+      {/* Permission modes */}
+      <section style={{ display: 'grid', gap: '1rem' }}>
+        <div style={{ display: 'grid', gap: '0.5rem' }}>
+          <h2 style={sectionTitle}>Permission modes</h2>
+          <p style={{ color: 'var(--color-muted)', fontSize: '0.9375rem' }}>
+            Every write operation passes through a pre-tool hook before execution.
+            The active <code style={{ color: 'var(--color-primary)', fontSize: '0.875rem' }}>PermissionMode</code> controls
+            whether the agent prompts the user, auto-approves, or blocks the call entirely.
+          </p>
+        </div>
+        <div style={grid}>
+          {[
+            {
+              name: 'DEFAULT',
+              sig: 'PermissionMode.DEFAULT',
+              desc: 'Read ops run freely. Each write op triggers an interactive prompt — accept, accept-for-file, accept-all, or deny.',
+            },
+            {
+              name: 'PLAN_ONLY',
+              sig: 'PermissionMode.PLAN_ONLY',
+              desc: 'All write ops are blocked. The agent can only read files and reason about a plan without modifying anything.',
+            },
+            {
+              name: 'ACCEPT_EDITS',
+              sig: 'PermissionMode.ACCEPT_EDITS',
+              desc: 'Write ops on files the user has already approved run silently. New files still require a prompt.',
+            },
+            {
+              name: 'ACCEPT_ALL',
+              sig: 'PermissionMode.ACCEPT_ALL',
+              desc: 'All tool calls — reads and writes — execute without any prompts for the rest of the session.',
+            },
+          ].map(({ name, sig, desc }) => (
+            <div key={name} style={cell}>
+              <span style={cellIcon}>{name}</span>
+              <div style={cellTitle}>{name}</div>
+              <span style={sigLine}>{sig}</span>
+              <div style={cellDesc}>{desc}</div>
+            </div>
+          ))}
+        </div>
+      </section>
     </main>
   )
 }
