@@ -145,12 +145,12 @@ export default function Home({ onNavigate }: HomeProps) {
     <main style={page}>
       {/* Hero */}
       <section style={hero}>
-        <span style={badge}>ClaudeCode · DeepSeekV4 · OpenAI SDK  · Coding Agent</span>
+        <span style={badge}>ClaudeCode · DeepSeekV4 · OpenAI SDK · Skills · Coding Agent</span>
         <h1 style={h1Style}>Build a coding agent<br />from scratch</h1>
         <p style={subtitle}>
           A step-by-step tutorial for building <strong>NanaCode</strong> —
           a DeepSeek-powered coding agent with file tools, shell execution,
-          and a structured system prompt.
+          a structured system prompt, permission controls, and a pluggable skill system.
         </p>
         <div style={ctaRow}>
           <a
@@ -177,7 +177,7 @@ export default function Home({ onNavigate }: HomeProps) {
             <span style={dot('#febc2e')} />
             <span style={dot('#28c840')} />
             <span style={{ ...dim, marginLeft: '0.5rem', fontSize: '0.75rem' }}>
-              step3/agent.py
+              step5/agent.py
             </span>
           </div>
           <div style={terminalBody}>
@@ -199,8 +199,12 @@ export default function Home({ onNavigate }: HomeProps) {
         <div style={cardsGrid}>
           {[
             {
-              title: '4 progressive steps',
-              desc: 'From a single-turn chat loop to a full tool-calling agent with a permission system — each step builds on the last.',
+              title: '5 progressive steps',
+              desc: 'From a single-turn chat loop to a full tool-calling agent with a permission system and skills — each step builds on the last.',
+            },
+            {
+              title: 'Skill system',
+              desc: 'Plug in reusable instruction packs via SKILL.md files. Slash-commands like /step-updates load skills on demand.',
             },
             {
               title: 'ToolRegistry',

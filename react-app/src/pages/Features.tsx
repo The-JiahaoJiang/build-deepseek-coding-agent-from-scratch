@@ -113,7 +113,7 @@ def build_system_prompt(toolRegistry: ToolRegistry) -> str:
         "{{platform}}": plat,
         "{{shell}}": shell,
         "{{git_context}}": git_context,
-        "{{deferred_tools}}": str(toolRegistry.to_openai_tools()),
+        "{{tools}}": str(toolRegistry.to_openai_tools()),
         "{{claude_md}}": "Not available",
         "{{memory}}": "Not available",
         "{{skills}}": "Not available",
@@ -161,6 +161,11 @@ const tools = [
     sig: 'web_search(query: str) → str',
     desc: 'Search the web for up-to-date information, documentation, or error messages.',
   },
+  {
+    name: 'load_skill',
+    sig: 'load_skill(name: str) → str',
+    desc: 'Load a skill by name to get specialized instructions for a task. Skills are markdown files with YAML frontmatter stored in .skills/.',
+  },
 ]
 
 export default function Features() {
@@ -169,7 +174,7 @@ export default function Features() {
       <div style={intro}>
         <h1 style={{ fontSize: '1.75rem', fontWeight: 600 }}>Features</h1>
         <p style={{ color: 'var(--color-muted)', fontSize: '0.9375rem', maxWidth: '600px' }}>
-          NanaCode exposes seven tools to the model via the OpenAI function-calling
+          NanaCode exposes eight tools to the model via the OpenAI function-calling
           schema. Each tool maps to a single Python function registered in the{' '}
           <code style={{ color: 'var(--color-primary)', fontSize: '0.875rem' }}>ToolRegistry</code>.
         </p>
@@ -202,7 +207,7 @@ export default function Features() {
         </div>
         <div style={promptBox}>
           <div style={promptHeader}>
-            <span style={promptFileName}>step3/system_prompt.py</span>
+            <span style={promptFileName}>step5/system_prompt.py</span>
           </div>
           <pre style={pre}><code>{PROMPT_SNIPPET}</code></pre>
         </div>
@@ -221,7 +226,7 @@ export default function Features() {
             { token: '{{platform}}', label: 'OS + arch' },
             { token: '{{shell}}', label: 'Login shell' },
             { token: '{{git_context}}', label: 'Branch · status · log' },
-            { token: '{{deferred_tools}}', label: 'Tool schemas (OpenAI format)' },
+            { token: '{{tools}}', label: 'Tool schemas (OpenAI format)' },
             { token: '{{claude_md}}', label: 'CLAUDE.md context' },
             { token: '{{memory}}', label: 'Persistent memory' },
             { token: '{{skills}}', label: 'Skill definitions' },

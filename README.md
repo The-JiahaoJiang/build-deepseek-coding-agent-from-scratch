@@ -269,3 +269,111 @@ Welocome to NanaCode ! I am your coding assistant. How can I help you today?
  >> exit
 [NanaCode] >> Shutting down. Goodbye!
 ```
+
+### 5. Add a skill system with slash-command dispatch (This section was updated by NanaCode Skill: /step-updates )
+
+In `step5/`, we introduce a **skill system** — reusable, loadable instruction packs stored as markdown files that the agent can pull in on demand via a `load_skill` tool and slash-command shortcuts.
+
+New files:
+- `skills.py` — defines `Skill` (a dataclass with name, description, triggers, instructions, and file_path; parses YAML-like frontmatter from markdown files via `from_file()`) and `SkillRegistry` (a singleton that scans a directory for `SKILL.md` files and provides `list_skills()`, `get_skill()`, `load_skill()`).
+- `.skills/step-updates/SKILL.md` — the first skill, containing instructions for documenting new tutorial steps.
+
+Key changes from step4:
+- **`skills.py`** — `Skill.from_file()` reads markdown files with `---`-delimited frontmatter (name, description, triggers). `SkillRegistry._scan()` recursively finds `SKILL.md` files and loads them. No external YAML dependency — the parser is a hand-rolled simple parser.
+- **`tools.py`** — `ToolRegistry.register_skill_tool(skill_registry)` registers a `load_skill` tool (`OpType.READ`) and stores a reference to the `SkillRegistry` for delegation. New `list_skills()` and `get_skill_description()` methods proxy to the stored registry.
+- **`system_prompt.py`** — `_build_skills_description()` now queries `ToolRegistry.list_skills()` to populate the `{{skills}}` placeholder with actual skill names and descriptions (previously "Not available").
+- **`agent.py`** — in `__init__`, scans `.skills/` and wires the registry into the tool system. In `send_message()`, a **slash-command parser** intercepts messages starting with `/skill-name`, loads the skill instructions into conversation history as a system message, and forwards the remaining tokens.
+
+**Run the agent:**
+```bash
+uv run step5/agent.py
+```
+
+Example interaction showing skill loading via slash-command:
+```shell
+❯ uv run ./step5/agent.py
+         _         _   _                    ____          _
+       _ \'-_,#   | \ | | __ _ _ __   __ _ / ___|___   __| | ___
+      _\'--','`|  |  \| |/ _` | '_ \ / _` | |   / _ \ / _` |/ _ \
+      \`---`  /   | |\  | (_| | | | | (_| | |__| (_) | (_| |  __/
+       `----'`    |_| \_|\__,_|_| |_|\__,_|\____\___/ \__,_|\___|
+
+Welocome to NanaCode ! I am your coding assistant. How can I help you today?
+ >> list your skills
+[NanaCode] >> My available skills:
+
+- **step-updates** — Find the latest stepN folder, then update README.md and all react-app pages accordingly.
+ >> /step-updates
+[skill] loaded 'step-updates'
+[skill] load_skill  step-updates
+[tool] list_files  .
+[tool] list_files  step5
+[tool] list_files  step4
+[tool] read_file   step5/skills.py
+[tool] read_file   step5/permission.py
+[tool] read_file   step5/tools.py
+[tool] read_file   step5/system_prompt.py
+[tool] read_file   step5/agent.py
+[tool] read_file   step5/prompt_template.py
+[tool] read_file   step5/__init__.py
+[tool] read_file   README.md
+[tool] read_file   react-app/src/pages/Steps.tsx
+[tool] read_file   react-app/src/pages/Features.tsx
+[tool] read_file   react-app/src/pages/Home.tsx
+[tool] list_files  step5/.skills
+[tool] list_files  step5/.skills/step-updates
+[tool] read_file   step5/.skills/step-updates/SKILL.md
+
+[permission] Write operation requested:
+  [tool] edit_file   README.md  (-3 lines, +31 lines)
+	[a] Accept this tool call
+	[b] Accept all edits for this file (README.md)
+	[c] Accept all edits for this session
+	[d] Deny this tool call
+  Your choice (a/b/c/d): c
+[tool] edit_file   README.md  (-3 lines, +31 lines)
+[tool] grep_search README.md  pattern='\[NanaCode\] >> Shutting down'
+[tool] edit_file   README.md  (-3 lines, +31 lines)
+[tool] grep_search README.md  pattern='Goodbye!'
+[tool] read_file   README.md
+[tool] write_file  README.md  (306 lines)
+[tool] edit_file   react-app/src/pages/Steps.tsx  (-1 lines, +30 lines)
+[tool] edit_file   react-app/src/pages/Steps.tsx  (-1 lines, +1 lines)
+[tool] edit_file   react-app/src/pages/Steps.tsx  (-2 lines, +29 lines)
+[tool] edit_file   react-app/src/pages/Features.tsx  (-1 lines, +6 lines)
+[tool] edit_file   react-app/src/pages/Features.tsx  (-1 lines, +1 lines)
+[tool] edit_file   react-app/src/pages/Features.tsx  (-1 lines, +1 lines)
+[tool] edit_file   react-app/src/pages/Features.tsx  (-1 lines, +1 lines)
+[tool] edit_file   react-app/src/pages/Features.tsx  (-1 lines, +1 lines)
+[tool] edit_file   react-app/src/pages/Home.tsx  (-1 lines, +1 lines)
+[tool] edit_file   react-app/src/pages/Home.tsx  (-1 lines, +1 lines)
+[tool] edit_file   react-app/src/pages/Home.tsx  (-2 lines, +6 lines)
+[tool] edit_file   react-app/src/pages/Home.tsx  (-1 lines, +1 lines)
+[tool] edit_file   react-app/src/pages/Home.tsx  (-1 lines, +1 lines)
+[tool] edit_file   react-app/src/pages/Home.tsx  (-2 lines, +2 lines)
+[tool] run_command  $ cd /Users/jahojiang/Desktop/code/build-deepseek-coding-agent-from-scratch/react-app && npm run build 2>&1 | tail -20
+[NanaCode] >> Build succeeds. Here's a summary of all changes made:
+
+### README.md
+- Added `### 5. Add a skill system with slash-command dispatch` section with description of new files (`skills.py`, `.skills/step-updates/SKILL.md`), key changes from step4, run command, and example shell interaction.
+
+### react-app/src/pages/Steps.tsx
+- Changed intro from "Three incremental steps" to "Five incremental steps"
+- Added `STEP5_CODE` constant (~30 lines showing `SkillRegistry` wiring and slash-command parser)
+- Added Step 5 block with tags: `SkillRegistry`, `load_skill`, `SKILL.md`, `frontmatter`, `slash-command`, `system message injection`
+
+### react-app/src/pages/Features.tsx
+- Added `load_skill` tool to the tools array (8 tools now, up from 7)
+- Updated prompt snippet file reference: `step3/system_prompt.py` → `step5/system_prompt.py`
+- Updated placeholder: `{{deferred_tools}}` → `{{tools}}` (matches step5's actual template)
+- Updated intro text: "seven tools" → "eight tools"
+
+### react-app/src/pages/Home.tsx
+- Updated step count: "4 progressive steps" → "5 progressive steps"
+- Added new card: "Skill system"
+- Updated terminal bar label: `step3/agent.py` → `step5/agent.py`
+- Updated badge: added "Skills"
+- Updated subtitle: mentions "permission controls, and a pluggable skill system"
+ >> exit
+[NanaCode] >> Shutting down. Goodbye!
+```

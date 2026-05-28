@@ -225,6 +225,39 @@ class Agent(...):
             ...
 `
 
+const STEP5_CODE = `\
+# step5: skill system with slash-command dispatch
+from skills import SkillRegistry
+
+class Agent(...):
+    def __init__(self):
+        self.tool_registry = ToolRegistry()
+        # scan .skills/ dir and register load_skill tool
+        self.tool_registry.register_skill_tool(
+            SkillRegistry(Path(__file__).parent / ".skills")
+        )
+        self._system_prompt = build_system_prompt(self.tool_registry)
+        ...
+
+    def send_message(self, message):
+        # slash-command parser: /skill-name key:val ...
+        tokens = message.split()
+        if tokens and tokens[0].startswith("/"):
+            skill_name = tokens[0][1:]
+            result = self.tool_registry.execute_tool(
+                {"name": "load_skill", "args": {"name": skill_name}}
+            )
+            if not result.startswith("Skill '"):
+                # inject skill instructions as system message
+                self.conversation_history.append(
+                    {"role": "system", "content": result}
+                )
+        ...
+
+# skills.py: SkillRegistry scans .skills/ for SKILL.md files
+# with ---frontmatter: name, description, triggers, then body
+`
+
 export default function Steps() {
   return (
     <main style={page}>
@@ -233,7 +266,7 @@ export default function Steps() {
           Building NanaCode
         </h1>
         <p style={{ color: 'var(--color-muted)', fontSize: '0.9375rem' }}>
-          Three incremental steps from a bare API call to a full agentic coding assistant.
+          Five incremental steps from a bare API call to a full tool-calling agent with skills.
         </p>
       </div>
 
@@ -346,6 +379,35 @@ export default function Steps() {
             <span style={fileName}>step4/agent.py</span>
           </div>
           <pre style={pre}><code>{STEP4_CODE}</code></pre>
+        </div>
+      </div>
+
+      <hr style={divider} />
+
+      {/* Step 5 */}
+      <div style={stepWrap}>
+        <div style={stepHeader}>
+          <span style={stepNum}>step 5</span>
+          <h2 style={stepTitle}>Skill system</h2>
+        </div>
+        <p style={stepDesc}>
+          Introduce a pluggable <code style={{ color: 'var(--color-primary)', fontSize: '0.875rem' }}>SkillRegistry</code>{' '}
+          that loads reusable instruction packs from <code style={{ color: 'var(--color-primary)', fontSize: '0.875rem' }}>SKILL.md</code>{' '}
+          files. A <code style={{ color: 'var(--color-primary)', fontSize: '0.875rem' }}>load_skill</code> tool lets the agent{' '}
+          fetch specialized instructions on demand, and a slash-command parser in{' '}
+          <code style={{ color: 'var(--color-primary)', fontSize: '0.875rem' }}>send_message()</code> lets users trigger{' '}
+          skills with <code style={{ color: 'var(--color-primary)', fontSize: '0.875rem' }}>/skill-name</code> shortcuts.
+        </p>
+        <div style={tagList}>
+          {['SkillRegistry', 'load_skill', 'SKILL.md', 'frontmatter', 'slash-command', 'system message injection'].map(t => (
+            <span key={t} style={tag}>{t}</span>
+          ))}
+        </div>
+        <div style={codeBlock}>
+          <div style={codeHeader}>
+            <span style={fileName}>step5/agent.py</span>
+          </div>
+          <pre style={pre}><code>{STEP5_CODE}</code></pre>
         </div>
       </div>
     </main>
